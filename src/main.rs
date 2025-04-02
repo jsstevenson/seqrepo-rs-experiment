@@ -1,111 +1,63 @@
-use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
-use serde::Serialize;
+use std::path::PathBuf;
+mod api;
+use std::ops::RangeInclusive;
 
-fn app() -> Router {
-    Router::new()
-        .route("/ping", get(get_ping))
-        .route("/sequence/{alias}", get(get_sequence))
-        .route("/metadata/{alias}", get(get_metadata))
+use clap::{Args, Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-#[tokio::main]
+#[derive(Subcommand)]
+enum Commands {
+    Serve(ServeArgs),
+    Import(ImportArgs),
+}
+
+#[derive(Args, Debug)]
+struct ServeArgs {
+    #[arg(long)]
+    db_url: Option<String>,
+
+    #[arg(long, value_parser = port_in_range)]
+    port: Option<u16>,
+}
+
+const PORT_RANGE: RangeInclusive<usize> = 1..=65535;
+
+fn port_in_range(s: &str) -> Result<u16, String> {
+    let port: usize = s
+        .parse()
+        .map_err(|_| format!("`{s}` isn't a port number"))?;
+    if PORT_RANGE.contains(&port) {
+        Ok(port as u16)
+    } else {
+        Err(format!(
+            "port not in range {}-{}",
+            PORT_RANGE.start(),
+            PORT_RANGE.end()
+        ))
+    }
+}
+
+#[derive(Args, Debug)]
+struct ImportArgs {
+    path: PathBuf,
+}
+
+#[tokio::main()]
 async fn main() {
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app()).await.unwrap();
-}
+    let cli = Cli::parse();
 
-#[derive(Serialize)]
-struct PingResponse {
-    version: String,
-    url: String,
-}
-
-async fn get_ping() -> (StatusCode, Json<PingResponse>) {
-    let response = PingResponse {
-        version: String::from("zzzz"),
-        url: String::from("http://google.com"),
-    };
-    (StatusCode::OK, Json(response))
-}
-
-// TODO
-//  404 if not found
-//  422 if invalid request
-async fn get_sequence(Path(alias): Path<String>) -> (StatusCode, String) {
-    (StatusCode::OK, alias)
-}
-
-#[derive(Serialize)]
-struct MetadataResponse {
-    length: i64,
-    aliases: String,  // todo array
-    alphabet: String, // todo nullable
-    added: String,    // todo nullable
-}
-
-// TODO
-//  404 if not found
-//  422 if invalid request
-async fn get_metadata(Path(alias): Path<String>) -> (StatusCode, Json<MetadataResponse>) {
-    let response = MetadataResponse {
-        length: 10,
-        aliases: alias,
-        alphabet: String::from("zzz"),
-        added: String::from("zzz"),
-    };
-    (StatusCode::OK, Json(response))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
-    use tower::ServiceExt;
-
-    #[tokio::test]
-    async fn ping() {
-        let app = app();
-
-        let response = app
-            .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn get_sequence() {
-        let app = app();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/sequence/aaaaa")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn get_metadata() {
-        let app = app();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/metadata/aaaaa")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
+    match &cli.command {
+        Commands::Serve(args) => {
+            api::serve(args.port).await;
+        },
+        Commands::Import(args) => {
+            println!("import args: {:?}", args);
+        }
     }
 }
