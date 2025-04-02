@@ -1,8 +1,9 @@
-use std::path::PathBuf;
 mod api;
-use std::ops::RangeInclusive;
+mod import;
 
 use clap::{Args, Parser, Subcommand};
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -55,9 +56,10 @@ async fn main() {
     match &cli.command {
         Commands::Serve(args) => {
             api::serve(args.port).await;
-        },
+        }
         Commands::Import(args) => {
             println!("import args: {:?}", args);
+            let _ = import::import(&args.path).await;
         }
     }
 }
