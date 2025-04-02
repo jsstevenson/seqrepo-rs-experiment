@@ -61,7 +61,7 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
+    use tower::ServiceExt;
 
     #[tokio::test]
     async fn ping() {
