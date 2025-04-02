@@ -1,7 +1,8 @@
+use std::path::PathBuf;
 mod api;
 use std::ops::RangeInclusive;
 
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -13,10 +14,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Serve(ServeArgs),
+    Import(ImportArgs),
 }
 
-#[derive(Args)]
-#[derive(Debug)]
+#[derive(Args, Debug)]
 struct ServeArgs {
     #[arg(long)]
     db_url: Option<String>,
@@ -42,13 +43,21 @@ fn port_in_range(s: &str) -> Result<u16, String> {
     }
 }
 
+#[derive(Args, Debug)]
+struct ImportArgs {
+    path: PathBuf,
+}
+
 #[tokio::main()]
 async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Serve(args)  => {
+        Commands::Serve(args) => {
             api::serve(args.port).await;
+        },
+        Commands::Import(args) => {
+            println!("import args: {:?}", args);
         }
     }
 }
