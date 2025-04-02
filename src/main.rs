@@ -53,3 +53,57 @@ async fn get_metadata(Path(alias): Path<String>) -> (StatusCode, Json<MetadataRe
     };
     (StatusCode::OK, Json(response))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
+
+    #[tokio::test]
+    async fn ping() {
+        let app = app();
+
+        let response = app
+            .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn get_sequence() {
+        let app = app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/sequence/aaaaa")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn get_metadata() {
+        let app = app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/metadata/aaaaa")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}
