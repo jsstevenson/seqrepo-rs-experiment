@@ -28,6 +28,7 @@ async fn get_ping() -> (StatusCode, Json<PingResponse>) {
     (StatusCode::OK, Json(response))
 }
 
+// TODO
 //  404 if not found
 //  422 if invalid request
 async fn get_sequence(Path(alias): Path<String>) -> (StatusCode, String) {
@@ -42,6 +43,7 @@ struct MetadataResponse {
     added: String,    // todo nullable
 }
 
+// TODO
 //  404 if not found
 //  422 if invalid request
 async fn get_metadata(Path(alias): Path<String>) -> (StatusCode, Json<MetadataResponse>) {
