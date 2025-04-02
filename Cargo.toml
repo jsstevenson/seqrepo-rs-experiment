@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = "0.8.3"
+serde = { version = "1.0.219", features = ["serde_derive"] }
+tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+tower = { version = "0.5.2", features = ["util"] }
