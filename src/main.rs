@@ -1,5 +1,6 @@
 mod api;
 mod import;
+mod dynamodb;
 
 use clap::{Args, Parser, Subcommand};
 use std::ops::RangeInclusive;
