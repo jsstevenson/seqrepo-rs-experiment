@@ -8,22 +8,19 @@ const TABLE_NAME: &str = "seqrepo";
 pub async fn create_table_if_not_exists(client: &Client) -> Result<(), DynamodbError> {
     let tables = client.list_tables().send().await?;
     let names = tables.table_names();
-    println!("---{:?}", names);
     for name in names {
         if name == TABLE_NAME {
             return Ok(());
         }
     }
-
     create_table(client).await?;
-
     Ok(())
 }
 
 #[derive(Debug, Clone)]
 enum ObjectType {
     SeqAlias,
-    FastaDir
+    FastaDir,
 }
 
 const PK_NAME: &str = "type";
@@ -33,11 +30,10 @@ impl ObjectType {
     pub fn to_db_value(&self) -> String {
         match self {
             ObjectType::SeqAlias => "seqalias".to_string(),
-            ObjectType::FastaDir => "fastadir".to_string()
+            ObjectType::FastaDir => "fastadir".to_string(),
         }
     }
 }
-
 
 // lookups
 // * given sequence ID/alias (incl namespace) -> get all aliases, sequence metadata
@@ -47,36 +43,52 @@ impl ObjectType {
 //
 // alias properties:
 // * sequence_id: ga4gh seq id (could be redundant to sk) [GSI on pk-sequence_id]
-// * len [int]
-// * alpha
-// * added [timeestamp]
+// * added [timestamp of some kind]
+// * is_current [bool]
 //
 // fastadir properties:
 // * uri
 async fn create_table(client: &Client) -> Result<(), DynamodbError> {
     // primary key: item type
     // either "seqalias" or "fastadir"
-    let pk = dynamodb_types::KeySchemaElement::builder()
+    let pk_key = dynamodb_types::KeySchemaElement::builder()
         .attribute_name(String::from(PK_NAME))
         .key_type(dynamodb_types::KeyType::Hash)
+        .build()?;
+    let pk_attr = dynamodb_types::AttributeDefinition::builder()
+        .attribute_name(PK_NAME)
+        .attribute_type(dynamodb_types::ScalarAttributeType::S)
         .build()?;
 
     // sort key: namespaced identifier or alias
     // eg
     // * "refseq:NC_000001.11"
     // * "ga4gh:SQ.Ya6Rs7DHhDeg7YaOSg1EoNi3U_nQ9SvO"
-    let sk = dynamodb_types::KeySchemaElement::builder()
+    let sk_key = dynamodb_types::KeySchemaElement::builder()
         .attribute_name(String::from(SK_NAME))
         .key_type(dynamodb_types::KeyType::Range)
+        .build()?;
+
+    let sk_attr = dynamodb_types::AttributeDefinition::builder()
+        .attribute_name(SK_NAME)
+        .attribute_type(dynamodb_types::ScalarAttributeType::S)
+        .build()?;
+
+    let throughput = dynamodb_types::ProvisionedThroughput::builder()
+        .set_read_capacity_units(Some(100))
+        .set_write_capacity_units(Some(100))
         .build()?;
 
     let _ = client
         .create_table()
         .table_name(String::from(TABLE_NAME))
-        .key_schema(pk)
-        .key_schema(sk)
+        .key_schema(pk_key)
+        .attribute_definitions(pk_attr)
+        .key_schema(sk_key)
+        .attribute_definitions(sk_attr)
+        .provisioned_throughput(throughput)
         .send()
-        .await;
+        .await?;
 
     // TODO create GSI on type + sequence_id
 
@@ -96,10 +108,10 @@ pub async fn get_aws_client() -> Result<Client, DynamodbError> {
 }
 
 pub async fn put_seq_alias(client: &Client, seq_alias: SeqAlias) -> Result<(), DynamodbError> {
-    let pk_av = dynamodb_types::AttributeValue::S(seq_alias.seq_id);
-    let sk_av = dynamodb_types::AttributeValue::S(seq_alias.namespace);
-    // TODO might need to combine namaspace and alias
-    let alias_av = dynamodb_types::AttributeValue::S(seq_alias.alias);
+    let pk_av = dynamodb_types::AttributeValue::S(ObjectType::SeqAlias.to_db_value());
+    let sk_av =
+        dynamodb_types::AttributeValue::S(format!("{}:{}", seq_alias.namespace, seq_alias.alias));
+    let seq_id_av = dynamodb_types::AttributeValue::S(seq_alias.seq_id);
     let added_av = dynamodb_types::AttributeValue::S(seq_alias.added);
     let current_av = dynamodb_types::AttributeValue::Bool(seq_alias.is_current);
     let request = client
@@ -107,13 +119,11 @@ pub async fn put_seq_alias(client: &Client, seq_alias: SeqAlias) -> Result<(), D
         .table_name(TABLE_NAME)
         .item(PK_NAME, pk_av)
         .item(SK_NAME, sk_av)
-        .item("alias", alias_av)
+        .item("alias", seq_id_av)
         .item("added", added_av)
         .item("current", current_av);
 
-    let resp = request.send().await?;
-    let attributes = resp.attributes().unwrap();
-    println!("{:?}", attributes);
+    let _ = request.send().await?;
 
     Ok(())
 }

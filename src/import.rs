@@ -107,12 +107,13 @@ pub async fn import(seqrepo_instance: &PathBuf) -> Result<(), SeqRepoImportError
     import_seqalias_db(&seqalias_db)
         .await
         .map_err(|_| SeqRepoImportError)?;
-    let fastadir_db = seqrepo_instance
-        .clone()
-        .join("sequences")
-        .join("db.sqlite3");
-    import_fastadir(&fastadir_db)
-        .await
-        .map_err(|_| SeqRepoImportError)?;
+    // TODO once seqalias is working
+    //let fastadir_db = seqrepo_instance
+    //    .clone()
+    //    .join("sequences")
+    //    .join("db.sqlite3");
+    //import_fastadir(&fastadir_db)
+    //    .await
+    //    .map_err(|_| SeqRepoImportError)?;
     Ok(())
 }

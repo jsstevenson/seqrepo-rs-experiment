@@ -59,7 +59,6 @@ async fn main() {
             api::serve(args.port).await;
         }
         Commands::Import(args) => {
-            println!("import args: {:?}", args);
             let _ = import::import(&args.path).await;
         }
     }
