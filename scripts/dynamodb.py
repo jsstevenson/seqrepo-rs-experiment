@@ -1,7 +1,8 @@
 import boto3
 
 table_name = "seqrepo"
-dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8001")
+dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8001")
+
 
 def drop_table():
     table = dynamodb.Table(table_name)
@@ -18,10 +19,10 @@ def get_all_items():
     table = dynamodb.Table(table_name)
 
     response = table.scan()
-    items = response.get('Items', [])
+    items = response.get("Items", [])
 
-    while 'LastEvaluatedKey' in response:
-        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-        items.extend(response.get('Items', []))
+    while "LastEvaluatedKey" in response:
+        response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+        items.extend(response.get("Items", []))
 
     return items
