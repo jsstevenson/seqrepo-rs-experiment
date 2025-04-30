@@ -26,3 +26,12 @@ def get_all_items():
         items.extend(response.get("Items", []))
 
     return items
+
+
+def get_one_item():
+    table = dynamodb.Table(table_name)
+
+    response = table.scan()
+    items = response.get("Items", [])
+    if items:
+        print(items[0])

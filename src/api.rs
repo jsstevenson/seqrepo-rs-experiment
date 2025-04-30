@@ -1,5 +1,9 @@
+use aws_sdk_dynamodb::types::AttributeValue;
 use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+use crate::dynamodb::{get_aws_client, get_sequence_id_from_alias, ObjectType, SequenceMetadata};
 
 pub fn app() -> Router {
     Router::new()
@@ -14,7 +18,6 @@ pub async fn serve(port: Option<u16>) {
     } else {
         String::from("0.0.0.0:3000")
     };
-    println!("{}", address);
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     axum::serve(listener, app()).await.unwrap();
 }
@@ -40,25 +43,25 @@ async fn get_sequence(Path(alias): Path<String>) -> (StatusCode, String) {
     (StatusCode::OK, alias)
 }
 
-#[derive(Serialize)]
-struct MetadataResponse {
-    length: i64,
-    aliases: String,  // todo array
-    alphabet: String, // todo nullable
-    added: String,    // todo nullable
-}
-
 // TODO
-//  404 if not found
 //  422 if invalid request
-async fn get_metadata(Path(alias): Path<String>) -> (StatusCode, Json<MetadataResponse>) {
-    let response = MetadataResponse {
-        length: 10,
-        aliases: alias,
-        alphabet: String::from("zzz"),
-        added: String::from("zzz"),
-    };
-    (StatusCode::OK, Json(response))
+async fn get_metadata(Path(alias): Path<String>) -> Result<Json<SequenceMetadata>, StatusCode> {
+    let client = get_aws_client().await.unwrap();
+    let seq_id_response = get_sequence_id_from_alias(&client, &alias).await;
+    if let Ok(Some(seq_id)) = seq_id_response {
+        Ok(Json(SequenceMetadata {
+            added: "now".to_string(),
+            aliases: vec!["sdlfjk".to_string()],
+            alphabet: seq_id,
+            len: 5,
+        }))
+    } else {
+        if let Ok(None) = seq_id_response {
+            Err(StatusCode::NOT_FOUND)
+        } else {
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 #[cfg(test)]
